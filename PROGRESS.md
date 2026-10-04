@@ -3,9 +3,10 @@
 ## Current Topic
 > What am I working on right now, and which step of the framework am I on?
 
-Fundamentals → **Scalability** ✅, **Latency vs Throughput** ✅, and
-**Load Balancers** ✅ (all completed).
-Next: **SQL vs NoSQL**, then Caching Strategies — or start Topic 01, Rate Limiter.
+Fundamentals → **Scalability** ✅, **Latency vs Throughput** ✅,
+**Load Balancers** ✅, and **Capacity Estimation / Requirements-first thinking** ✅.
+Next: **Caching Strategies** (chosen — kills the fuzzy "TTL-cache fast-changing
+prices" weak area), then SQL vs NoSQL.
 
 ## What I Learned
 > Concrete takeaways — concepts, gotchas, "aha" moments.
@@ -36,6 +37,24 @@ Next: **SQL vs NoSQL**, then Caching Strategies — or start Topic 01, Rate Limi
 - Retries must respect **idempotency** — retrying a `POST /order` can double-submit.
 - Fix for sessions: don't use sticky sessions — **externalize state** so servers stay
   stateless & interchangeable (ties back to statelessness lesson above).
+- **Little's Law**: concurrent requests = arrival rate × time per request.
+  100k rps × 1s = 100k in flight. This one number drives RAM + instance count.
+- **CPU-bound vs I/O-bound**: Node blocks on CPU work (1 proc ≈ 1 req/s) but juggles
+  thousands of I/O-waiting requests via the event loop. Decide this *first*.
+- **Question the requirements** = the #1 senior skill. A "users API" taking 1s is a
+  BUG (should be ~5ms), not a scaling problem. The fake number inflated the whole
+  design ~200×. Kill the cause, don't scale the symptom.
+- **Question the responsibility**: one endpoint touching 100 tables / taking 1s is
+  doing too much → split into focused APIs (or denormalize / parallelize / precompute).
+- **Unique reads kill cache hit rate** — caching only helps repeat/hot reads. Check
+  the access distribution (power-law vs uniform) before assuming Redis saves you.
+- **PgBouncer** multiplexes 1000s of app connections down to a small real DB pool.
+- **Read replicas** scale read QPS but NOT writes or data size, and add replication
+  lag → read-your-writes bug (route a user's fresh reads to the primary briefly).
+- **Consistency matches the consequence of being wrong** (the big one): same wallet
+  balance → *display path* can be cached/stale-tolerant; *trading/matching-engine
+  path* must be strongly consistent, no cache, read-the-truth under a lock. Never
+  serve both from one API.
 
 ## Weak Areas
 > Things I couldn't answer or had to look up. Revisit these.
@@ -53,10 +72,11 @@ Next: **SQL vs NoSQL**, then Caching Strategies — or start Topic 01, Rate Limi
 ## Next Steps
 > The specific next action to take.
 
-- Answer the 3 Load Balancer interview questions (sticky-session logout debug;
+- Start **Caching Strategies** (next session): cache-aside vs write-through vs
+  write-back; TTL vs invalidation; thundering herd / stampede / hot keys; crypto
+  tie-in = price feeds use snapshot + delta over WebSocket, not a TTL cache.
+- Still owed: the 3 Load Balancer interview questions (sticky-session logout debug;
   active vs passive health checks; safe retries on POST /order).
-- Then start **SQL vs NoSQL**, or begin Topic 01 (Rate Limiter) and build the Node.js
-  version per mentor rule 5.
 
 ## Session Log
 > One line per session: `YYYY-MM-DD — summary`
@@ -73,3 +93,9 @@ Next: **SQL vs NoSQL**, then Caching Strategies — or start Topic 01, Rate Limi
   real load (~1M msg/sec); Round Robin vs Least Connections; retries + idempotency;
   externalize state over sticky sessions. Got overwhelmed by DNS/VIP/Anycast — kept
   the core (2 LBs so one can die) and moved on. Strong on the redundancy reasoning.
+- 2026-10-03 — Capacity estimation + requirements-first thinking: Little's Law
+  (concurrent = rps × latency), CPU vs I/O-bound, PgBouncer, read replicas +
+  replication lag, unique reads kill caching. Big win: QUESTION THE REQUIREMENTS —
+  a 1s users API is a bug, not a scaling problem (inflated design ~200×). Then wallet
+  balance example → consistency matches consequence (display path cache-ok, trading
+  path strong-consistent, never one API for both). Chose Caching Strategies next.
