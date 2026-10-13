@@ -158,6 +158,62 @@ The LB constantly checks: "is this server alive?"
 
 ---
 
+## Interview Q&A (drilled 2026-10-13 — debt from 2026-09-29 session, cleared)
+
+### Q1 — Sticky-session logout debug
+> 3 app servers behind an LB with sticky sessions. User clicks Logout, page
+> reloads, still logged in; after a few refreshes it *eventually* logs out. Why?
+
+- **Disease:** the session lives in each server's **local memory**, so the same
+  identity has independent copies on A, B, and C.
+- **Mechanics:** Logout hit **A** and cleared only A's copy. Refreshes bounce
+  between servers; land on B/C → still logged in; land on A → logged out.
+  **"Eventually"** = you finally hit the cleared server (or B/C time out).
+- ⭐ The clue is the word *eventually* — it proves the client is NOT truly pinned;
+  perfect stickiness would *hide* this bug (log out immediately & permanently).
+- **Fix:** externalize the session to a **shared store** (Redis/DB) → one copy,
+  one delete, all servers read the same source of truth → logged out everywhere.
+- **Why not stickier sessions:** (1) hard-pinning fights load balancing — can't
+  rebalance a hot server; (2) it ties **correctness to routing** — if A dies, the
+  session dies; you'd be using the LB's routing table as your session DB (wrong
+  tool); (3) it only *hides* the multiple-copies disease, never cures it.
+- **One-liner:** *don't make state follow the request — make state shared so the
+  request can go anywhere.*
+
+### Q2 — Active vs passive health checks (wedged server)
+> Server B accepts TCP connections but every request hangs 30s then errors.
+
+- **Active** = LB *proactively* probes each server on an interval (`GET /health`
+  every ~5s). **Passive** = LB *observes real user traffic* and ejects a server
+  after N real failures (reactive — users are the detector, so slower to protect).
+- ⭐ **The trap:** a shallow **TCP/port** active check reports wedged-B as
+  **healthy** — the port is still open, so the ping passes. To catch a wedged
+  server the active check must hit the **app path with a short timeout** (<2s).
+- ⭐ **Passive is blind without traffic** — the single idea behind both its
+  weaknesses: (1) under low traffic it detects failures slowly; (2) an *ejected*
+  server gets **zero** traffic, so passive can **never** tell it recovered →
+  B stays dead forever. That's why you need active checks: to eject *and* re-admit.
+
+### Q3 — Safe retries on `POST /order`
+> Order placed, response lost on the way back, client times out and retries.
+
+- **(a)** Treating the retry as new → trader **buys 2 BTC**, real money lost.
+- **(b) Idempotency key:** client generates a unique ID (UUID), sends it as a
+  header. Server checks Redis: **new** → process, store the response under the key
+  (24h TTL); **exists** → skip execution, **replay the cached response.**
+- ⭐ **Concurrency fix:** two fast retries can both see "new" before either stores
+  the key (read→decide→write gap). Make the **claim atomic**: Redis `SET key NX`
+  (only one caller gets OK) or a SQL `UNIQUE` constraint (second INSERT fails).
+  Same reflex as the flash-sale `UPDATE ... WHERE stock > 0` / `DECR` gate.
+- **(c) Why not "just don't retry POST"?** (1) the trader is left in an **unknown
+  state** — the response was lost, they don't know if it worked, can't safely
+  retry by hand; (2) you **don't control the clients** — the mobile app auto-retries
+  on a tower handoff, the user double-clicks Buy. **The server must guard its own
+  state** — correctness lives at the source of truth, never in a network component
+  you don't own.
+
+---
+
 ## Still fuzzy — revisit later
 - DNS-based failover / Virtual IP (VIP) / Anycast — *how* the browser finds the
   healthy LB. (Core idea is solid; the plumbing is the confusing part.)

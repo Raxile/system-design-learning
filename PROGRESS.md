@@ -176,8 +176,9 @@ Next: **CAP theorem** (previewed), then **Replication & Sharding**.
 - Then **Replication & Sharding** (long-standing weak area, touched 3×).
 - Build a small **cache-aside demo** in `projects/` (Node/TS + Redis mock): prove the
   read-miss→store→hit path and the DB-first-then-delete write path. I write it.
-- Still owed: the 3 Load Balancer interview questions (sticky-session logout debug;
-  active vs passive health checks; safe retries on POST /order).
+- ~~Still owed: the 3 Load Balancer interview questions~~ ✅ CLEARED 2026-10-13
+  (sticky-session logout; active vs passive health checks; safe retries on POST
+  /order). Written up in `notes/load-balancer.md` → Interview Q&A.
 
 ## Session Log
 > One line per session: `YYYY-MM-DD — summary`
@@ -214,6 +215,15 @@ Next: **CAP theorem** (previewed), then **Replication & Sharding**.
   a 1s users API is a bug, not a scaling problem (inflated design ~200×). Then wallet
   balance example → consistency matches consequence (display path cache-ok, trading
   path strong-consistent, never one API for both). Chose Caching Strategies next.
+- 2026-10-13 — Backlog clearing: answered the 3 owed Load Balancer interview
+  questions (sticky-session logout = local in-memory session, same identity copied
+  on A/B/C, logout cleared only one → fix = shared session store, not stickier;
+  active vs passive health checks = a shallow TCP active check is FOOLED by a
+  wedged server, passive is blind without traffic so it can't re-admit an ejected
+  box; safe POST /order retries = idempotency key + atomic claim via SET NX /
+  UNIQUE, and you can't "just not retry" because clients retry anyway + trader is
+  left in an unknown state). Idempotency/race answers were the sharpest; health-check
+  answers drifted into jargon — drill plain-English phrasing. Written up in notes.
 - 2026-10-11 — SQL vs NoSQL: the core skill = reason DATA PROPERTY → database, never
   the reverse ("it has ACID" is the feature-list trap). NoSQL = give up flexibility
   (joins, ad-hoc queries) to buy horizontal scale, and ONLY worth it with a real scale
