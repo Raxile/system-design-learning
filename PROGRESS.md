@@ -7,7 +7,8 @@ Fundamentals → **Scalability** ✅, **Latency vs Throughput** ✅,
 **Load Balancers** ✅, **Capacity Estimation / Requirements-first thinking** ✅,
 **Caching Strategies** ✅, **Concurrency / Oversell (flash sale)** ✅, and
 **SQL vs NoSQL** ✅.
-Next: **CAP theorem** (previewed), then **Replication & Sharding**.
+SQL-vs-NoSQL backlog questions ✅ CLEARED (2026-10-14).
+Next: **CAP theorem** (previewed + self-derived), then **Replication & Sharding**.
 
 ## What I Learned
 > Concrete takeaways — concepts, gotchas, "aha" moments.
@@ -167,9 +168,15 @@ Next: **CAP theorem** (previewed), then **Replication & Sharding**.
 ## Next Steps
 > The specific next action to take.
 
-- Answer the **3 SQL vs NoSQL interview questions** from the 2026-10-11 session (defend
-  NoSQL beyond write volume; 5yr tick data for ad-hoc fraud queries; BASE withdrawal
-  during a partition in CAP terms) — the 3rd previews CAP.
+- ~~Answer the **3 SQL vs NoSQL interview questions** from the 2026-10-11 session~~
+  ✅ CLEARED 2026-10-14. (1) NoSQL beyond write volume = **one query shape → the
+  partition key is free**, not "NoSQL=horizontal"; a users table has many access
+  patterns so no single shard key works (breaks joins/non-key lookups). (2) 5yr tick
+  data for ad-hoc fraud = **same data, two access patterns → two stores**: Cassandra
+  for live point-lookups, columnar OLAP (ClickHouse/Snowflake) for scan+aggregate
+  (OLTP vs OLAP). (3) BASE withdrawal under partition = **answer stale (AP) vs refuse
+  (CP)**; money → CP (be correct or be down); double-spend is the failure mode. Fully
+  derived CAP unprompted by the end.
 - Start **CAP theorem** (next session): already half-derived it (consistency vs
   availability under a partition). Formalize C/A/P, "you only choose during a partition,"
   CP vs AP systems, crypto tie-in = matching engine/ledger = CP, market-data feed = AP.
@@ -224,6 +231,18 @@ Next: **CAP theorem** (previewed), then **Replication & Sharding**.
   UNIQUE, and you can't "just not retry" because clients retry anyway + trader is
   left in an unknown state). Idempotency/race answers were the sharpest; health-check
   answers drifted into jargon — drill plain-English phrasing. Written up in notes.
+- 2026-10-14 — Backlog clearing (pre-CAP): answered the 3 owed SQL-vs-NoSQL questions.
+  (1) Defended NoSQL past write volume = ONE query shape makes the partition key free
+  (symbol+time); many-question tables (users) have no single shard key → sharding breaks
+  joins/non-key lookups. (2) 5yr tick + ad-hoc fraud = route to columnar OLAP
+  (ClickHouse/Snowflake) alongside Cassandra — same data, two access patterns, two
+  stores (OLTP vs OLAP); got the pivot instantly. (3) Withdraw under partition in CAP
+  terms = CP refuses (be correct/be down), AP answers stale (double-spend risk) → money
+  picks CP. Stumbles: still flips vertical/horizontal ("NoSQL=horizontal" slogan) and
+  drifted to implementation details (req-id, "BASE takes effort") instead of the CAP
+  mechanism; needed the Node-Left/Node-Right cable-cut picture to lock "can't have C+A
+  during P because agreeing needs a message that can't get through." Derived CAP himself
+  by the end. CAP is now fully unblocked.
 - 2026-10-11 — SQL vs NoSQL: the core skill = reason DATA PROPERTY → database, never
   the reverse ("it has ACID" is the feature-list trap). NoSQL = give up flexibility
   (joins, ad-hoc queries) to buy horizontal scale, and ONLY worth it with a real scale
