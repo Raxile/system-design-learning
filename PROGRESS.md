@@ -5,10 +5,11 @@
 
 Fundamentals → **Scalability** ✅, **Latency vs Throughput** ✅,
 **Load Balancers** ✅, **Capacity Estimation / Requirements-first thinking** ✅,
-**Caching Strategies** ✅, **Concurrency / Oversell (flash sale)** ✅, and
-**SQL vs NoSQL** ✅.
+**Caching Strategies** ✅, **Concurrency / Oversell (flash sale)** ✅,
+**SQL vs NoSQL** ✅, and **CAP theorem (+ PACELC)** ✅.
 SQL-vs-NoSQL backlog questions ✅ CLEARED (2026-10-14).
-Next: **CAP theorem** (previewed + self-derived), then **Replication & Sharding**.
+CAP concepts done (2026-10-15); owe 3 interview questions + hands-on leader/follower
+demo (scheduled for tomorrow). Next: **Replication & Sharding**.
 
 ## What I Learned
 > Concrete takeaways — concepts, gotchas, "aha" moments.
@@ -158,6 +159,11 @@ Next: **CAP theorem** (previewed + self-derived), then **Replication & Sharding*
   (reconciliation / outbox / event log). Core is solid; these are the "scale it" layer.
 - Reflex to build: when I hear "high concurrency on one resource," reach FIRST for the
   single atomic op (`UPDATE ... WHERE stock > 0` or `DECR`), not for a lock I manage.
+- **CAP "it's money → consistent" reflex** keeps firing (over-chose C for a price chart).
+  Drill the fix-rule: ask **"if THIS read is stale, who loses what?"** — display path = L
+  even on a trading page; only C where someone loses money/trust. Also owe 3 interview Qs
+  (CP mid-trade read-vs-write; "just make everything strongly consistent" costs; RYOW via
+  a version token the write returns) + the hands-on leader/follower demo.
 - **SQL vs NoSQL reflexes still raw under pressure:** (1) reached for the feature-list
   ("ACID", "BSON") instead of a *data property* — drill "state the data property FIRST";
   (2) said NoSQL "scales in one machine" = the vertical/horizontal flip AGAIN (horizontal
@@ -190,6 +196,24 @@ Next: **CAP theorem** (previewed + self-derived), then **Replication & Sharding*
 ## Session Log
 > One line per session: `YYYY-MM-DD — summary`
 
+- 2026-10-15 — CAP theorem + PACELC. (1) Killed the **"CA" myth**: P is not a feature
+  you toggle, it's a fact about the network — any multi-machine system WILL partition,
+  so CAP is really just C-vs-A *during* a partition; "CA" only describes a single node.
+  (2) **PACELC**: if Partition → A or C; **Else (healthy) → Latency or Consistency** —
+  the key insight that consistency is NEVER free even with a perfect network, because the
+  newest data physically has to travel to where you read it (leader/wait = correct+slow;
+  nearest follower = fast+maybe-stale). Derived L-vs-C himself from a leader/2-follower
+  read-routing scenario. (3) **Per-operation (even per-user) choice by consequence**:
+  nailed balance-at-order-submit = C (stale → oversell/double-spend) and volume banner =
+  L (vanity stat, nobody loses). (4) **Order-confirmation screen** → recognized stale =
+  user panic + duplicate buy, and I promoted his instinct to **Read-Your-Own-Writes /
+  session consistency** — only your OWN writes must be visible, cheaper than global C
+  (pin that user's reads to leader briefly). Stumbles: (a) first answer conflated the
+  CA-trap with the CP/AP tradeoff; (b) **over-chose C for the 24h price chart** — the
+  recurring "it's money/trading therefore consistent" trap; the fix-rule is ask "if THIS
+  read is stale, who loses what?" not "is this financial data?". Display path = L even on
+  the trading page. Same muscle as the 2026-10-03 wallet "never one API for display+trade".
+  Hands-on leader/follower replication-lag demo deferred to next session.
 - 2026-09-21 — Repo initialized. Structure, templates, and mentor rules set up.
 - 2026-09-27 — Scalability fundamental: bottlenecks, vertical vs horizontal, load
   balancers, statelessness, shared state, costs. Weak on naming & TTL-caching prices.
