@@ -1,0 +1,14 @@
+{
+  "name": "leader-follower-demo",
+  "version": "1.0.0",
+  "description": "A tiny in-process demo of leader/follower replication lag (CAP / PACELC).",
+  "type": "module",
+  "scripts": {
+    "demo": "tsx demo.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}

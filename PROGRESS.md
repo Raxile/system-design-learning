@@ -8,8 +8,10 @@ Fundamentals → **Scalability** ✅, **Latency vs Throughput** ✅,
 **Caching Strategies** ✅, **Concurrency / Oversell (flash sale)** ✅,
 **SQL vs NoSQL** ✅, and **CAP theorem (+ PACELC)** ✅.
 SQL-vs-NoSQL backlog questions ✅ CLEARED (2026-10-14).
-CAP concepts done (2026-10-15); owe 3 interview questions + hands-on leader/follower
-demo (scheduled for tomorrow). Next: **Replication & Sharding**.
+CAP concepts done (2026-10-15); hands-on leader/follower replication-lag demo ✅ BUILT
+(2026-10-18, `projects/leader-follower-demo/` — watched a follower return `undefined`
+mid-lag then converge). Still owe: 3 CAP interview questions (answering now). Next:
+**Replication & Sharding**.
 
 ## What I Learned
 > Concrete takeaways — concepts, gotchas, "aha" moments.
@@ -196,6 +198,20 @@ demo (scheduled for tomorrow). Next: **Replication & Sharding**.
 ## Session Log
 > One line per session: `YYYY-MM-DD — summary`
 
+- 2026-10-18 — Hands-on leader/follower replication-lag demo (`projects/leader-follower-demo/`,
+  Node/TS + tsx). Wrote all 4 method bodies himself (Follower.read/apply, Leader.write with
+  the `setTimeout`-per-follower closure, readFromLeader); ran it and **watched** a follower
+  return `undefined` at t=0 and t=50ms then converge to `1` at t=150ms — replication lag made
+  physical. Mid-session he got overwhelmed/demoralized by rapid-fire multi-part interview
+  questions ("I'm not learning anything") → switched to ONE plain-English idea at a time
+  grounded in the demo output, and it clicked hard. By the end he re-explained CAP, PACELC
+  ("if Partition→A or C; Else→Latency or Consistency"), and — the big win — derived *why you
+  can't just always read the leader* himself (one box can't serve ~1M reads/sec + can't be
+  near every user → followers exist for scale+proximity, at the cost of being a moment behind).
+  Nailed the master rule: consistency only where someone gets hurt if stale (balance→leader),
+  everything else fast (bids/volume→follower). Teaching note: short single questions + tie to
+  running code works; stacked interview drills backfire. Still owe the 3 CAP interview Qs
+  (parked — don't force). Next: **Replication & Sharding**.
 - 2026-10-15 — CAP theorem + PACELC. (1) Killed the **"CA" myth**: P is not a feature
   you toggle, it's a fact about the network — any multi-machine system WILL partition,
   so CAP is really just C-vs-A *during* a partition; "CA" only describes a single node.
