@@ -10,8 +10,15 @@ Fundamentals → **Scalability** ✅, **Latency vs Throughput** ✅,
 SQL-vs-NoSQL backlog questions ✅ CLEARED (2026-10-14).
 CAP concepts done (2026-10-15); hands-on leader/follower replication-lag demo ✅ BUILT
 (2026-10-18, `projects/leader-follower-demo/` — watched a follower return `undefined`
-mid-lag then converge). Still owe: 3 CAP interview questions (answering now). Next:
-**Replication & Sharding**.
+mid-lag then converge). **Sharding concepts ✅ DONE (2026-10-18)** — full arc below.
+**Sharding interview Qs:** Q1 (resize math) ✅ answered 9/10 — got ~80% naive
+migration AND ~205/1024 ≈ 20% with consistent hashing; only missed saying the
+one-line *why* (user→bucket frozen, only bucket→box table changes). **Still owe
+Q2 (shard-key choice: two fast queries, one key per copy) + Q3 (hot whale shard)
+— answering TONIGHT (2026-10-19).**
+Then: **hands-on sharding demo** — add `hash(user) % buckets` routing to
+`projects/leader-follower-demo/` so I can watch writes land on different boxes
+AND watch a resize move only a few buckets.
 
 ## What I Learned
 > Concrete takeaways — concepts, gotchas, "aha" moments.
@@ -137,6 +144,49 @@ mid-lag then converge). Still owe: 3 CAP interview questions (answering now). Ne
 - **Why BASE exists (not laziness):** under a network partition an ACID system must
   REJECT the write (can't confirm all copies agree); a BASE system ACCEPTS it and
   reconciles later → stays available. (This is half of CAP, derived.)
+- **Replicas copy data SIDEWAYS; shards SPLIT it.** A replica is a full clone (all
+  4 TB, all writes still hit the one primary) → can't scale writes or storage. Adding
+  a replica even adds a little write load. Sharding cuts the data across boxes → scales
+  both. (This was the exact gap my read-replica note already hinted at.)
+- **A shard key must spread load EVENLY and AT ALL TIMES.** Shard-by-time fails: "now"
+  is always one shard → every live write hits the October box (a *hotspot*) while old
+  shards nap. Range sharding is good for *range queries* / dropping old data, bad as a
+  write-spreader. Hash of `user_id` (`hash(user_id) % N`) scatters concurrent writes.
+- **Naive `% N` breaks on resize.** Going `%4 → %5` recomputes ~**80%** of all keys →
+  mass migration while live. The box count was baked into the formula.
+- ⭐ **Consistent hashing = freeze the bucket count, change only the bucket→box table.**
+  Rule becomes `hash(user) % 1024` where 1024 NEVER changes (user→bucket frozen forever).
+  Buckets are *assigned* to boxes via a tiny lookup table. Add a box → reassign a few
+  buckets → only ~**1/N** of data moves, not ~all. (Redis Cluster = 16,384 fixed slots;
+  Cassandra/Dynamo = the ring form; "virtual nodes"/"hash slots" = same idea.)
+- **The box count must NOT be part of the formula** — move it into the routing table.
+  Then adding a box edits the table; it never re-runs the math per user.
+- **scatter-gather = a query that doesn't use the shard key must visit EVERY box + merge.**
+  Shard by `user_id`: "Alice's orders" = 1 box ✅, "all BTC orders" = all boxes ❌.
+  A `WHERE user_id=2` filter does NOT skip boxes — it trims rows *after* visiting them.
+  **Only the shard key lets you skip boxes.**
+- ⭐ **There is no single correct shard key — it depends on the query.** Matching needs
+  the order book by `symbol` (1 hop, in-memory, NO cache — matching must be the live
+  truth to the millisecond; a 5-min TTL would match against cancelled orders = money/legal
+  disaster). Account history needs orders by `user_id`. Same orders, two access patterns.
+- **One copy is fast for only ONE shard key. Need both fast → keep TWO copies, each
+  sharded for its own query** (CQRS / read-models / secondary index). You never drop the
+  feature; you give it its own read-shape.
+- **This is DELIBERATE denormalization, not the "no duplicates" sin.** Normalization
+  (one copy, never disagrees) is a single-box ideal optimized for writes/correctness.
+  At scale you *choose* to duplicate for read speed and *own the sync problem* — the copies
+  can disagree (same lesson as "a cache is a second copy"). Naming the tradeoff out loud =
+  senior; silent duplication with no sync plan = the bug normalization forbids.
+- ⭐ **Hot shard: sharding spreads load across MANY keys; it's powerless against ONE key
+  hotter than a box.** BTC-USDT ≈ 40% of exchange volume → its box melts while others nap.
+  Adding boxes can't help: a single symbol's order book is **indivisible** (to match, all
+  BTC orders must be in one place) → the hot key stays on one box forever. Averages lie;
+  the hot shard is the truth.
+- **Fix a hot key by splitting its WORKLOAD, not the key.** (1) Scale that one box UP
+  (more CPU/RAM, order book in-memory) — the rare place "buy a bigger box" is the right
+  senior answer. (2) Peel the *reads* off: matching stays on the hot box; the millions
+  *watching* BTC price hit replicas/fan-out instead (= the ~1M msg/sec market-data fan-out
+  from the LB session, deliberately kept off the matching path).
 
 ## Weak Areas
 > Things I couldn't answer or had to look up. Revisit these.
