@@ -13,9 +13,14 @@ CAP concepts done (2026-10-15); hands-on leader/follower replication-lag demo �
 mid-lag then converge). **Sharding concepts ✅ DONE (2026-10-18)** — full arc below.
 **Sharding interview Qs:** Q1 (resize math) ✅ answered 9/10 — got ~80% naive
 migration AND ~205/1024 ≈ 20% with consistent hashing; only missed saying the
-one-line *why* (user→bucket frozen, only bucket→box table changes). **Still owe
-Q2 (shard-key choice: two fast queries, one key per copy) + Q3 (hot whale shard)
-— answering TONIGHT (2026-10-19).**
+one-line *why* (user→bucket frozen, only bucket→box table changes).
+**Sharding Qs ✅ ALL CLEARED (2026-10-22):** Q2 — two copies / CQRS, each sharded for
+its own query (user_id for history, symbol for matching); defended as *deliberate*
+denormalization and named the cost out loud = the **sync problem** (write to both →
+slower writes, copies can drift). Caught the bad "Redis on the matching path" reflex.
+Q3 — adding boxes can't cool a hot key; BTC order book is **indivisible** (matching
+needs all orders in one place) → it stays on one box. Fix = scale that box UP + peel
+the *watcher reads* off onto replicas/fan-out, keep matching on the hot box.
 Then: **hands-on sharding demo** — add `hash(user) % buckets` routing to
 `projects/leader-follower-demo/` so I can watch writes land on different boxes
 AND watch a resize move only a few buckets.
@@ -248,6 +253,23 @@ AND watch a resize move only a few buckets.
 ## Session Log
 > One line per session: `YYYY-MM-DD — summary`
 
+- 2026-10-22 — Backlog clearing: cleared ALL owed interview questions (sharding Q2+Q3,
+  CAP Q1+Q2+Q3). **Sharding Q2** (two fast queries) — nailed two copies / CQRS, defended
+  as *deliberate* denormalization and named the cost = the sync problem (write to both,
+  slower writes, copies drift); I caught his "Redis on the matching path" reflex (matching
+  must never read cache). **Sharding Q3** (hot whale) — adding boxes can't cool one hot
+  key; BTC book is **indivisible** → scale UP + peel watcher-reads onto replicas/fan-out.
+  **CAP Q1** (CP minority side) — first said "only one server runs" (corrected to
+  majority/quorum), got write-refused instantly, needed a nudge to see the *read* is also
+  refused (copy could be silently stale → double-spend); landed "down beats wrong."
+  **CAP Q2** ("make everything strongly consistent") — got write-latency cost; corrected
+  his "read scans all DB" to "waits for agreement"; landed both costs (pay for consistency
+  you don't need + one blip takes the whole site down). **CAP Q3** (read-your-own-writes) —
+  first mis-applied the *partition* playbook (shut a follower down) to what's just normal
+  *lag*; after redirect gave a genuinely senior answer: version token → follower waits with
+  timeout, else routes to leader; got that only the writer pays, briefly. Recurring tells:
+  vertical/horizontal + CP-partition-vs-lag conflation under pressure; both resolved in-session.
+  Only backlog left: the hands-on sharding demo (hash-routing on leader-follower-demo).
 - 2026-10-18 — Hands-on leader/follower replication-lag demo (`projects/leader-follower-demo/`,
   Node/TS + tsx). Wrote all 4 method bodies himself (Follower.read/apply, Leader.write with
   the `setTimeout`-per-follower closure, readFromLeader); ran it and **watched** a follower
